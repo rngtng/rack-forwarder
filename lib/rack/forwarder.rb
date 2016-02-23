@@ -14,19 +14,18 @@ module Rack
 
     def initialize(app, options = {}, &block)
       @app = app
-      @matchers = Registry.new
       @options = options
       instance_eval(&block)
     end
 
     def forward(regexp, to:)
-      @matchers.register(regexp, to)
+      @from = regexp
+      @to = to
     end
 
     def call(env)
       request = Request.new(env)
-      matcher = @matchers.match?(request.path)
-      return @app.call(env) unless matcher
+      return @app.call(env) if @from.match(request.path).nil?
 
       request_method = request.request_method.to_s.downcase
       options = {
@@ -35,7 +34,7 @@ module Rack
       }.merge(@options)
       response = Excon.public_send(
         request_method,
-        matcher.url_from(request.path),
+        @to,
         options,
       )
 
